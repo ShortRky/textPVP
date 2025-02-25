@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text MMORPG</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #222; color: #fff; text-align: center; }
+        #game, #login { max-width: 600px; margin: 20px auto; padding: 20px; background: #333; border-radius: 10px; }
+        button { margin: 5px; padding: 10px; cursor: pointer; }
+        #chatbox { height: 100px; overflow-y: scroll; background: #444; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="login">
+        <h2>Login to Play</h2>
+        <input type="text" id="username" placeholder="Enter your name">
+        <button onclick="login()">Start Adventure</button>
+    </div>
+    
+    <div id="game" style="display:none;">
+        <h2>Welcome, <span id="playerName"></span></h2>
+        <p><span id="gameText">What would you like to do?</span></p>
+        <button onclick="explore()">Explore</button>
+        <button onclick="viewStats()">Stats</button>
+        <button onclick="openChat()">Chat</button>
+        
+        <div id="battle" style="display:none;">
+            <p><span id="enemyText"></span></p>
+            <button onclick="attack('normal')">Attack</button>
+            <button onclick="attack('heavy')">Heavy Attack</button>
+            <button onclick="defend()">Defend</button>
+            <button onclick="run()">Run</button>
+        </div>
+        
+        <div id="chat" style="display:none;">
+            <h3>Chat</h3>
+            <div id="chatbox"></div>
+            <input type="text" id="chatInput" placeholder="Type a message">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let player = { name: '', hp: 100, xp: 0, level: 1, cards: [] };
+        let enemy = null;
+        let chatMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+
+        function login() {
+            let username = document.getElementById('username').value;
+            if (username.trim() === '') return;
+            player.name = username;
+            document.getElementById('playerName').innerText = player.name;
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            localStorage.setItem('player', JSON.stringify(player));
+        }
+        
+        function explore() {
+            let event = Math.random();
+            if (event < 0.5) {
+                startBattle();
+            } else {
+                document.getElementById('gameText').innerText = "You found some gold!";
+            }
+        }
+        
+        function startBattle() {
+            enemy = { name: "Goblin", hp: 50 };
+            document.getElementById('enemyText').innerText = `A wild ${enemy.name} appeared!`;
+            document.getElementById('battle').style.display = 'block';
+        }
+        
+        function attack(type) {
+            let damage = type === 'heavy' ? Math.floor(Math.random() * 20) + 5 : Math.floor(Math.random() * 10) + 1;
+            enemy.hp -= damage;
+            document.getElementById('enemyText').innerText = `You dealt ${damage} damage! ${enemy.name} has ${enemy.hp} HP left.`;
+            if (enemy.hp <= 0) {
+                document.getElementById('gameText').innerText = "You defeated the enemy!";
+                document.getElementById('battle').style.display = 'none';
+                player.xp += 10;
+                levelUp();
+                dropCard();
+                return;
+            }
+            enemyAttack();
+        }
+        
+        function enemyAttack() {
+            let damage = Math.floor(Math.random() * 15);
+            player.hp -= damage;
+            document.getElementById('enemyText').innerText += ` The enemy attacked! You took ${damage} damage!`;
+            if (player.hp <= 0) {
+                document.getElementById('gameText').innerText = "You have been defeated... Game Over.";
+                document.getElementById('battle').style.display = 'none';
+                document.getElementById('game').style.display = 'none';
+                document.getElementById('login').style.display = 'block';
+            }
+        }
+        
+        function dropCard() {
+            if (Math.random() < 1/12) {
+                let newCard = `Power Card Lv${player.level}`;
+                player.cards.push(newCard);
+                document.getElementById('gameText').innerText += ` You found a rare card: ${newCard}!`;
+            }
+        }
+        
+        function defend() {
+            document.getElementById('enemyText').innerText = "You blocked the attack!";
+        }
+        
+        function run() {
+            document.getElementById('battle').style.display = 'none';
+            document.getElementById('gameText').innerText = "You ran away safely.";
+        }
+        
+        function levelUp() {
+            if (player.xp >= 20) {
+                player.level++;
+                player.xp = 0;
+                player.hp = 100;
+                document.getElementById('gameText').innerText = `You leveled up! Now Level ${player.level}!`;
+            }
+        }
+        
+        function viewStats() {
+            alert(`Name: ${player.name}\nHP: ${player.hp}\nLevel: ${player.level}\nXP: ${player.xp}\nCards: ${player.cards.join(", ")}`);
+        }
+    </script>
+</body>
+</html>
