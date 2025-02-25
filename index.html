@@ -6,7 +6,7 @@
     <title>Text MMORPG</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #222; color: #fff; text-align: center; }
-        #game, #login { max-width: 600px; margin: 20px auto; padding: 20px; background: #333; border-radius: 10px; }
+        #game, #login, #devMenu { max-width: 600px; margin: 20px auto; padding: 20px; background: #333; border-radius: 10px; }
         button { margin: 5px; padding: 10px; cursor: pointer; }
         #chatbox { height: 100px; overflow-y: scroll; background: #444; padding: 10px; }
     </style>
@@ -24,6 +24,7 @@
         <button onclick="explore()">Explore</button>
         <button onclick="viewStats()">Stats</button>
         <button onclick="openChat()">Chat</button>
+        <button onclick="recruitTeammate()">Recruit Teammate</button>
         
         <div id="battle" style="display:none;">
             <p><span id="enemyText"></span></p>
@@ -41,8 +42,15 @@
         </div>
     </div>
 
+    <div id="devMenu" style="display:none;">
+        <h2>Developer Menu</h2>
+        <button onclick="grantXP()">Grant 100 XP</button>
+        <button onclick="addCard()">Get Random Card</button>
+        <button onclick="heal()">Heal to Full</button>
+    </div>
+
     <script>
-        let player = { name: '', hp: 100, xp: 0, level: 1, cards: [] };
+        let player = JSON.parse(localStorage.getItem('player')) || { name: '', hp: 100, xp: 0, level: 1, cards: [], team: [] };
         let enemy = null;
         let chatMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
 
@@ -50,9 +58,16 @@
             let username = document.getElementById('username').value;
             if (username.trim() === '') return;
             player.name = username;
+            saveGame();
             document.getElementById('playerName').innerText = player.name;
             document.getElementById('login').style.display = 'none';
             document.getElementById('game').style.display = 'block';
+            if (player.name === 'DevNSUU') {
+                document.getElementById('devMenu').style.display = 'block';
+            }
+        }
+        
+        function saveGame() {
             localStorage.setItem('player', JSON.stringify(player));
         }
         
@@ -63,69 +78,38 @@
             } else {
                 document.getElementById('gameText').innerText = "You found some gold!";
             }
+            saveGame();
         }
         
-        function startBattle() {
-            enemy = { name: "Goblin", hp: 50 };
-            document.getElementById('enemyText').innerText = `A wild ${enemy.name} appeared!`;
-            document.getElementById('battle').style.display = 'block';
+        function recruitTeammate() {
+            let newTeammate = { name: `Ally${player.team.length + 1}`, hp: 80, attack: 10 };
+            player.team.push(newTeammate);
+            document.getElementById('gameText').innerText = `You recruited ${newTeammate.name}!`;
+            saveGame();
         }
         
-        function attack(type) {
-            let damage = type === 'heavy' ? Math.floor(Math.random() * 20) + 5 : Math.floor(Math.random() * 10) + 1;
-            enemy.hp -= damage;
-            document.getElementById('enemyText').innerText = `You dealt ${damage} damage! ${enemy.name} has ${enemy.hp} HP left.`;
-            if (enemy.hp <= 0) {
-                document.getElementById('gameText').innerText = "You defeated the enemy!";
-                document.getElementById('battle').style.display = 'none';
-                player.xp += 10;
-                levelUp();
-                dropCard();
-                return;
-            }
-            enemyAttack();
+        function grantXP() {
+            player.xp += 100;
+            document.getElementById('gameText').innerText = "Developer granted 100 XP!";
+            saveGame();
         }
         
-        function enemyAttack() {
-            let damage = Math.floor(Math.random() * 15);
-            player.hp -= damage;
-            document.getElementById('enemyText').innerText += ` The enemy attacked! You took ${damage} damage!`;
-            if (player.hp <= 0) {
-                document.getElementById('gameText').innerText = "You have been defeated... Game Over.";
-                document.getElementById('battle').style.display = 'none';
-                document.getElementById('game').style.display = 'none';
-                document.getElementById('login').style.display = 'block';
-            }
+        function addCard() {
+            let cards = ["Attack Boost", "Defense Shield", "XP Bonus"];
+            let chosenCard = cards[Math.floor(Math.random() * cards.length)];
+            player.cards.push(chosenCard);
+            document.getElementById('gameText').innerText = `Dev granted card: ${chosenCard}`;
+            saveGame();
         }
         
-        function dropCard() {
-            if (Math.random() < 1/12) {
-                let newCard = `Power Card Lv${player.level}`;
-                player.cards.push(newCard);
-                document.getElementById('gameText').innerText += ` You found a rare card: ${newCard}!`;
-            }
-        }
-        
-        function defend() {
-            document.getElementById('enemyText').innerText = "You blocked the attack!";
-        }
-        
-        function run() {
-            document.getElementById('battle').style.display = 'none';
-            document.getElementById('gameText').innerText = "You ran away safely.";
-        }
-        
-        function levelUp() {
-            if (player.xp >= 20) {
-                player.level++;
-                player.xp = 0;
-                player.hp = 100;
-                document.getElementById('gameText').innerText = `You leveled up! Now Level ${player.level}!`;
-            }
+        function heal() {
+            player.hp = 100;
+            document.getElementById('gameText').innerText = "Fully healed!";
+            saveGame();
         }
         
         function viewStats() {
-            alert(`Name: ${player.name}\nHP: ${player.hp}\nLevel: ${player.level}\nXP: ${player.xp}\nCards: ${player.cards.join(", ")}`);
+            alert(`Name: ${player.name}\nHP: ${player.hp}\nLevel: ${player.level}\nXP: ${player.xp}\nCards: ${player.cards.join(", ")}\nTeam: ${player.team.map(t => t.name).join(", ")}`);
         }
     </script>
 </body>
