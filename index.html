@@ -3,270 +3,343 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Final Fantasy-like MMORPG</title>
+    <title>Shadow Realm Chronicles</title>
     <style>
-        /* Your original CSS remains unchanged */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a1a;
             color: #ffffff;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
         }
         #game-container {
-            width: 90%;
-            max-width: 1200px;
-            background-color: #1e1e1e;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            width: 800px;
+            background-color: #2a2a2a;
+            border-radius: 10px;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         #game-output {
-            background-color: #2d2d2d;
-            padding: 20px;
-            border-radius: 8px;
-            height: 300px;
+            height: 400px;
             overflow-y: auto;
-            font-size: 14px;
-            line-height: 1.6;
+            background-color: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
         }
         #game-input {
             width: 100%;
             padding: 12px;
-            border-radius: 8px;
             border: none;
-            background-color: #3d3d3d;
-            color: #ffffff;
-            font-size: 14px;
+            border-radius: 5px;
+            background-color: #444;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 15px;
         }
         .button-container {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            flex-wrap: wrap;
         }
-        .button {
+        .game-button {
             background-color: #4CAF50;
             color: white;
-            padding: 12px 24px;
             border: none;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s;
         }
-        .button:hover {
+        .game-button:hover {
             background-color: #45a049;
-        }
-        .button.secondary {
-            background-color: #555;
-        }
-        .button.secondary:hover {
-            background-color: #666;
-        }
-        .hidden {
-            display: none;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
         <div id="game-output"></div>
-        <input type="text" id="game-input" placeholder="Enter your command...">
+        <input type="text" id="game-input" placeholder="Enter command...">
         <div class="button-container">
-            <button class="button" onclick="startGame()">Start Game</button>
-            <button class="button" onclick="handleCommand('explore')">Explore</button>
-            <button class="button" onclick="handleCommand('shop')">Shop</button>
-            <button class="button" onclick="handleCommand('inventory')">Inventory</button>
-            <button class="button" onclick="handleCommand('stats')">Stats</button>
+            <button class="game-button" onclick="handleCommand('explore')">Explore</button>
+            <button class="game-button" onclick="handleCommand('inventory')">Inventory</button>
+            <button class="game-button" onclick="handleCommand('stats')">Stats</button>
+            <button class="game-button" onclick="startGame()">New Game</button>
+            <button class="game-button" onclick="handleCommand('help')">Help</button>
         </div>
     </div>
 
     <script>
-        const gameOutput = document.getElementById('game-output');
-        const gameInput = document.getElementById('game-input');
-        let combatInterval;
-        
+        // Game State
+        let currentEnemy = null;
+        const SPAWNABLE_ITEMS = ["Health Potion", "Mana Potion", "Shadow Stone", "Dragon Sword"];
+        const LORE = {
+            locations: {
+                mortal: "Mortal Plane - Starting area",
+                void: "Eternal Void - Quest zone",
+                shadow: "Shadow Realm - Endgame area"
+            }
+        };
+
         let player = {
-            name: '',
-            class: '',
+            name: "",
+            class: "Novice",
             level: 1,
             health: 100,
             maxHealth: 100,
-            mana: 50,
-            attack: 10,
-            defense: 5,
+            attack: 15,
             experience: 0,
             gold: 100,
             inventory: [],
             isDev: false,
-            inCombat: false
+            godmode: false,
+            location: "mortal",
+            quests: {
+                shadowMonarch: { completed: false, step: 1 },
+                voidWraithsDefeated: 0
+            }
         };
 
-        // Core Game Functions
-        function appendOutput(message) {
-            gameOutput.innerHTML += `<p>> ${message}</p>`;
-            gameOutput.scrollTop = gameOutput.scrollHeight;
+        // Core Systems
+        function appendOutput(text) {
+            const output = document.getElementById('game-output');
+            output.innerHTML += `<div>> ${text}</div>`;
+            output.scrollTop = output.scrollHeight;
         }
 
-        function startGame() {
-            player.name = prompt("Character name:") || "Hero";
-            player.class = prompt("Class (Warrior/Mage/Assassin):") || "Adventurer";
-            appendOutput(`Welcome ${player.name} the ${player.class}!`);
-            appendOutput("Type commands or use buttons: explore, shop, inventory, stats");
+        function saveGame() {
+            localStorage.setItem('gameSave', JSON.stringify({
+                version: 3.0,
+                player: player,
+                currentEnemy: currentEnemy
+            }));
         }
 
-        function handleCommand(command) {
-            command = command.toLowerCase();
-            if(player.inCombat) return appendOutput("Can't do that during combat!");
-
-            switch(command) {
-                case 'explore':
-                    explore();
-                    break;
-                case 'shop':
-                    openShop();
-                    break;
-                case 'inventory':
-                    viewInventory();
-                    break;
-                case 'stats':
-                    viewStats();
-                    break;
-                default:
-                    processDevCommand(command);
+        function loadGame() {
+            const save = JSON.parse(localStorage.getItem('gameSave'));
+            if (save?.version === 3.0) {
+                player = save.player;
+                currentEnemy = save.currentEnemy;
+                appendOutput("Loaded saved game!");
             }
         }
 
-        // Game Systems
-        function explore() {
-            appendOutput("You venture into the wilderness...");
-            setTimeout(() => {
-                const rand = Math.random();
-                if(rand < 0.4) {
-                    appendOutput("You found a hidden treasure!");
-                    player.gold += 50;
-                    appendOutput(`+50 Gold! Total: ${player.gold}`);
-                } else if(rand < 0.8) {
-                    startCombat();
-                } else {
-                    appendOutput("You discover ancient ruins but find nothing...");
-                }
-            }, 1000);
+        // Combat System
+        function startCombat() {
+            currentEnemy = {
+                name: player.location === "void" ? "Void Wraith" : "Goblin Warlord",
+                health: player.level * 50,
+                attack: player.level * 8,
+                gold: player.level * 20,
+                xp: player.level * 25
+            };
+            appendOutput(`⚔️ ${currentEnemy.name} appears!`);
         }
 
-        function startCombat() {
-            player.inCombat = true;
-            const enemy = {
-                name: "Goblin",
-                health: 30,
-                attack: 8
+        function handleAttack(type) {
+            if (!currentEnemy) return;
+
+            const damage = {
+                normal: Math.floor(player.attack * (0.8 + Math.random() * 0.4)),
+                heavy: Math.floor(player.attack * 1.5),
+                special: player.class === "Shadow Monarch" ? 500 : 100
+            }[type];
+
+            currentEnemy.health -= damage;
+            appendOutput(`🔥 ${type} attack: ${damage} damage!`);
+
+            if (currentEnemy.health <= 0) {
+                player.experience += currentEnemy.xp;
+                player.gold += currentEnemy.gold;
+                if (currentEnemy.name === "Void Wraith") player.quests.voidWraithsDefeated++;
+                appendOutput(`☠️ Enemy defeated! +${currentEnemy.xp} XP | +${currentEnemy.gold}g`);
+                checkLevelUp();
+                checkQuests();
+                currentEnemy = null;
+            } else if (!player.godmode) {
+                const enemyDmg = Math.floor(currentEnemy.attack * (0.5 + Math.random()));
+                player.health -= enemyDmg;
+                appendOutput(`💥 ${currentEnemy.name} hits: ${enemyDmg} damage!`);
+                if (player.health <= 0) handleDefeat();
+            }
+            saveGame();
+        }
+
+        // Progression
+        function checkLevelUp() {
+    const basexp = 100; // Renamed to match your variable (fix typo)
+    let needed;
+
+    // Loop until player no longer has enough XP for the next level
+    while (true) {
+        needed = basexp * Math.pow(1.5, player.level - 1); // Recalculate for current level
+        if (player.experience >= needed) {
+            player.level++;
+            player.experience -= needed; // Deduct XP cost
+            player.maxHealth += 25;
+            player.attack += 10;
+            player.health = player.maxHealth; // Heal on level-up
+            appendOutput(`✨ LEVEL UP! (${player.level})`);
+            appendOutput(`+25 Max Health | +10 Attack`);
+        } else {
+            break; // Exit loop if not enough XP
+        }
+    }
+
+    // Update next level requirement display
+    appendOutput(`Next level requires ${Math.floor(basexp * Math.pow(2, player.level - 1))} XP`);
+}
+
+        function checkQuests() {
+            if (player.quests.shadowMonarch.step === 1 && player.inventory.includes("Shadow Stone")) {
+                player.quests.shadowMonarch.step++;
+                appendOutput("Quest Updated: Defeat 3 Void Wraiths!");
+            }
+            if (player.quests.shadowMonarch.step === 2 && player.quests.voidWraithsDefeated >= 3) {
+                changeClass("Shadow Monarch");
+                player.quests.shadowMonarch.completed = true;
+                appendOutput("🔥 You became the Shadow Monarch!");
+            }
+        }
+
+        // Class System
+        function changeClass(className) {
+            const classes = {
+                Warrior: { attack: 20, health: 150 },
+                Mage: { attack: 30, health: 90 },
+                Admin: { attack: 999, health: 9999, req: "dev" },
+                "Shadow Monarch": { attack: 500, health: 2000, req: "quest" }
             };
 
-            appendOutput(`A wild ${enemy.name} appears!`);
-            
-            combatInterval = setInterval(() => {
-                // Player attack
-                enemy.health -= player.attack;
-                appendOutput(`You hit ${enemy.name} for ${player.attack} damage!`);
+            if (classes[className]?.req === "dev" && !player.isDev) return;
+            if (classes[className]?.req === "quest" && !player.quests.shadowMonarch.completed) return;
 
-                // Enemy attack
-                player.health -= enemy.attack;
-                appendOutput(`${enemy.name} hits you for ${enemy.attack} damage!`);
-
-                // Check combat status
-                if(enemy.health <= 0) {
-                    clearInterval(combatInterval);
-                    player.inCombat = false;
-                    const xp = 25;
-                    player.experience += xp;
-                    appendOutput(`Victory! Gained ${xp} XP!`);
-                    checkLevelUp();
-                }
-
-                if(player.health <= 0) {
-                    clearInterval(combatInterval);
-                    player.inCombat = false;
-                    appendOutput("You were defeated...");
-                    player.health = player.maxHealth;
-                }
-            }, 1500);
+            player.class = className;
+            player.attack = classes[className].attack;
+            player.maxHealth = classes[className].health;
+            player.health = classes[className].health;
+            appendOutput(`⚡ Class changed to ${className}!`);
         }
 
-       // Developer System (Secret Commands)
-function processDevCommand(command) {
-    // Error 1: Added missing check for empty command
-    if (!command) return;
+        // Command Handler
+        function handleCommand(input) {
+            const [cmd, ...args] = input.split(' ');
 
-    // Error 2: Added proper command validation
-    if (command.toLowerCase() === 'devnsuu') {
-        player.isDev = true;
-        // Error 3: Fixed multi-line string formatting
-        appendOutput("[DEV MODE ACTIVATED]\n" +
-                    "Available commands:\n" +
-                    "- heal : Restore full health\n" +
-                    "- givexp [amount] : Add XP\n" +
-                    "- spawn [item] : Add item to inventory\n" +
-                    "- godmode : Toggle invincibility");
-        return;
-    }
+            // Dev Commands
+            if (player.isDev) {
+                switch(cmd.toLowerCase()) {
+                    case 'godmode':
+                        player.godmode = !player.godmode;
+                        appendOutput(`🛡️ Godmode ${player.godmode ? "ON" : "OFF"}`);
+                        return;
+                    case 'spawn':
+                        const item = args.join(' ');
+                        if (SPAWNABLE_ITEMS.includes(item)) {
+                            player.inventory.push(item);
+                            appendOutput(`🌀 Spawned ${item}`);
+                        } else {
+                            appendOutput("Invalid item! Valid: " + SPAWNABLE_ITEMS.join(", "));
+                        }
+                        return;
+                    case 'givexp':
+                        const xp = parseInt(args[0]) || 1000;
+                        player.experience += xp;
+                        appendOutput(`⚡ Gained ${xp} XP!`);
+                        return;
+                    case 'class':
+                        changeClass(args[0]);
+                        return;
+                }
+            }
 
-    if (player.isDev) {
-        // Error 4: Added proper argument handling
-        const args = command.split(' ');
-        const cmd = args[0].toLowerCase();
-        const params = args.slice(1);
-
-        switch(cmd) {
-            case 'heal':
-                // Error 5: Added bounds checking
-                player.health = Math.min(player.maxHealth, player.maxHealth);
-                appendOutput("[DEV] Health fully restored!");
-                break;
-
-            case 'givexp':
-                // Error 6: Added proper parameter validation
-                if (params.length === 0 || isNaN(params[0])) {
-                    appendOutput("[DEV] Usage: givexp [number]");
+            // Normal Commands
+            switch(cmd.toLowerCase()) {
+                case 'explore':
+                    if (player.location === "void" && Math.random() > 0.7) {
+                        player.inventory.push("Shadow Stone");
+                        appendOutput("💎 Found Shadow Stone!");
+                    }
+                    startCombat();
                     break;
-                }
-                const xp = parseInt(params[0], 10);
-                player.experience += xp;
-                appendOutput(`[DEV] Added ${xp} XP!`);
-                checkLevelUp();
-                break;
-
-            case 'spawn':
-                // Error 7: Added item validation
-                if (params.length === 0) {
-                    appendOutput("[DEV] Usage: spawn [item_name]");
+                case 'attack':
+                    if (["normal", "heavy", "special"].includes(args[0])) {
+                        handleAttack(args[0]);
+                    } else {
+                        appendOutput("Invalid attack! Use: normal/heavy/special");
+                    }
                     break;
-                }
-                const item = params.join(' ');
-                player.inventory.push(item);
-                appendOutput(`[DEV] Spawned ${item}`);
-                break;
-
-            case 'godmode':
-                // Error 8: Initialize property if missing
-                if (typeof player.godmode === 'undefined') {
-                    player.godmode = false;
-                }
-                player.godmode = !player.godmode;
-                appendOutput(`[DEV] Godmode ${player.godmode ? "ON" : "OFF"}`);
-                break;
-
-            default:
-                // Error 9: Added command suggestion
-                appendOutput(`[DEV] Unknown command: ${cmd}. Type 'devnsuu' for help.`);
+                case 'inventory':
+                    appendOutput("Inventory: " + (player.inventory.join(", ") || "Empty"));
+                    break;
+                case 'stats':
+                    appendOutput(`Name: ${player.name}`);
+                    appendOutput(`Class: ${player.class}`);
+                    appendOutput(`Level: ${player.level}`);
+                    appendOutput(`Health: ${player.health}/${player.maxHealth}`);
+                    appendOutput(`Attack: ${player.attack}`);
+                    appendOutput(`XP: ${player.experience}`);
+                    break;
+                case 'move':
+                    if (Object.keys(LORE.locations).includes(args[0])) {
+                        player.location = args[0];
+                        appendOutput(`🌌 Moved to ${LORE.locations[args[0]]}`);
+                    } else {
+                        appendOutput("Valid locations: " + Object.keys(LORE.locations).join(", "));
+                    }
+                    break;
+                case 'help':
+                    appendOutput("Commands: explore, attack [type], inventory, stats, move [location]");
+                    appendOutput("Dev commands: devnsuu, godmode, spawn [item], givexp [amount], class [name]");
+                    break;
+                case 'devnsuu':
+                    player.isDev = true;
+                    appendOutput("🔥 Developer mode activated!");
+                    break;
+                default:
+                    appendOutput("Unknown command");
+            }
+            saveGame();
         }
-    } else {
-        appendOutput("Unknown command. Type 'devnsuu' for developer access.");
-    }
-}
+
+        // Initialization
+        function startGame() {
+            player = {
+                name: prompt("Character name:") || "Hero",
+                class: "Novice",
+                level: 1,
+                health: 100,
+                maxHealth: 100,
+                attack: 15,
+                experience: 0,
+                gold: 100,
+                inventory: [],
+                isDev: false,
+                godmode: false,
+                location: "mortal",
+                quests: {
+                    shadowMonarch: { completed: false, step: 1 },
+                    voidWraithsDefeated: 0
+                }
+            };
+            appendOutput("🌟 New game started!");
+            appendOutput("Type 'help' for commands");
+            saveGame();
+        }
+
+        document.getElementById('game-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleCommand(e.target.value);
+                e.target.value = '';
+            }
+        });
+
+        // Start
+        appendOutput("SHADOW REALM CHRONICLES");
+        loadGame();
+    </script>
+</body>
+</html>
